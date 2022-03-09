@@ -67,12 +67,11 @@ class stockDataDownload(object):
         
         # 股票下载参数
         param = {
-            'code': stickcode,
+            'code': '0'+stickcode[2:],
             'start': '19900101',
             'fields': 'TCLOSE;HIGH;LOW;TOPEN;LCLOSE;CHG;PCHG;TURNOVER;VOTURNOVER;VATURNOVER;TCAP;MCAP'
         }
         try:
-            print(os.getcwd())
             if not os.path.exists(dirname):
                 print ('文件夹', dirname, '不存在，已重新建立')
                 os.makedirs(dirname)
@@ -81,19 +80,21 @@ class stockDataDownload(object):
             # 判断filepath代表的csv文件是否存在，存在则更新数据
             if os.path.exists(filepath):
                 # 读取文件内最新一条数据是哪一天的
-                tmpdf = pd.read_csv(filepath=filepath)
-                lastDate = tmpdf.tail(1).updateDate.values[0]                
+                tmpdf = pd.read_csv(filepath, encoding='gbk')[['日期']]
+                lastDate = tmpdf.sort_values(by='日期').tail(1).values[0][0]
                 # 若最新数据不是昨天的，则从最新数据的日期之后开始追加写入
-                if lastDate < (datetime.now()-datetime.datetime.now()-datetime.timedelta(days=1)).strftime('%Y-%m-%d'):
+                if lastDate < (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'):
                     param['start'] = (datetime.strptime(lastDate,'%Y-%m-%d')+timedelta(days=1)).strftime('%Y%m%d')
                     response = requests.get(self.tick_his_api, params=param)
                     if response.status_code!=200:
                         print('股票%s数据更新失败，开始下一个任务...'%stickcode)
                         return
+                    # print(response.text[61:-2])   去掉首行的列名，尾行换行符
                     with open(filepath, mode='ab+') as w:
-                        w.write(response.text.encode('utf8'))
+                        w.write(r'\n'.encode('gbk'))
+                        w.write(response.text[61:-2].encode('gbk',errors='ignore'))
                     w.close()
-                    print('股票%s数据已更新至%s...'%(stickcode, lastDate))
+                    print('股票%s数据已更新至%s...'%(stickcode, param['start']))
             else:
                 # 下载新股数据并存储
                 response = requests.get(self.tick_his_api, params=param)
@@ -101,9 +102,9 @@ class stockDataDownload(object):
                     print('股票%s下载失败，开始下一个任务...'%stickcode)
                     return
                 with open(filepath, mode='ab+') as w:
-                    w.write(response.text.encode('utf8'))
+                    w.write(response.text[:-2].encode('gbk',errors='ignore'))    # 去掉尾行换行符  unix是\r\n 所以2个字符
                 w.close()
-                # print('股票%s数据已完成下载...'%stickcode)
+                print('股票%s数据已完成下载...'%stickcode)
         except IOError as e:
             print ('文件操作失败',e)
         except Exception as e:
@@ -121,19 +122,19 @@ class stockDataDownload(object):
 sdd = stockDataDownload()
 if os.path.exists(r'C:\Users\Chenc'):
     stockhisData_dir = r'C:\Users\Chenc\OneDrive - whut.edu.cn\个人\AutoStock\dataDownload'
-    codePath = r''
+    codePath = r'C:\Users\Chenc\Desktop\临时\Development\stockPick'
 if os.path.exists(r'C:\Users\19047552'):
     stockhisData_dir = r'C:\Users\19047552\OneDrive - whut.edu.cn\个人\AutoStock\dataDownload'
     codePath = r'D:\个人\Python学习\myspace\stockPick'
 
 sdd.stock_code_save(stockhisData_dir)
-stockCodefile = os.path.join(stockDataDownload, 'all_stock_code.csv')
+stockCodefile = os.path.join(stockhisData_dir, 'all_stock_code.csv')
 with open(stockCodefile, mode='r') as r:
     f_csv = csv.reader(r)
     for row in f_csv:
         if row[0]=='StockCode':
             continue
         print('当前目标股票：', row)
-        sdd.tick_his_download(stickcode='0'+row[0][2:], dirname='dataDownload')
+        sdd.tick_his_download(stickcode=row[0], dirname=stockhisData_dir)
         sleep(2)
 r.close()
