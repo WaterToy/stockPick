@@ -82,8 +82,8 @@ class stockDataDownload(object):
                 # 读取文件内最新一条数据是哪一天的
                 tmpdf = pd.read_csv(filepath, encoding='gbk')[['日期']]
                 lastDate = tmpdf.sort_values(by='日期').tail(1).values[0][0]
-                # 若最新数据不是昨天的，则从最新数据的日期之后开始追加写入
-                if lastDate < (datetime.now()-timedelta(days=1)).strftime('%Y-%m-%d'):
+                # 若最新数据不是今天的，则从最新数据的日期之后开始追加写入
+                if lastDate < (datetime.now()).strftime('%Y-%m-%d'):
                     param['start'] = (datetime.strptime(lastDate,'%Y-%m-%d')+timedelta(days=1)).strftime('%Y%m%d')
                     response = requests.get(self.tick_his_api, params=param)
                     if response.status_code!=200:
@@ -94,7 +94,7 @@ class stockDataDownload(object):
                         w.write(r'\n'.encode('gbk'))
                         w.write(response.text[61:-2].encode('gbk',errors='ignore'))
                     w.close()
-                    print('股票%s数据已更新至%s...'%(stickcode, param['start']))
+                    print('股票%s数据已更新至%s...'%(stickcode, datetime.now().strftime('%Y-%m-%d')))
             else:
                 # 下载新股数据并存储
                 response = requests.get(self.tick_his_api, params=param)
@@ -136,5 +136,5 @@ with open(stockCodefile, mode='r') as r:
             continue
         print('当前目标股票：', row)
         sdd.tick_his_download(stickcode=row[0], dirname=stockhisData_dir)
-        sleep(2)
+        sleep(0.3)
 r.close()
